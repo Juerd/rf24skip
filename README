@@ -19,4 +19,4 @@ Connections:
 - Arduino   5V to battery "+" and capacitor
 - Battery "-"  to button
 
-A 1000 nF capacitor worked for me.
+A 1 mF capacitor worked for me.
