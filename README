@@ -1,0 +1,22 @@
+"rf24skip" by Juerd Waalboer
+
+Very simple implementation of "skip button", to skip annoying music,
+designed for the Arduino Nano v3.
+
+- Suggested use: with rf24server :-)
+
+    http://github.com/Juerd/rf24server
+
+Connections:
+- Arduino 3.3V to nRF24L01+ VCC
+- Arduino GND  to nRF24L01+ GND
+- Arduino   8  to nRF24L01+ CE
+- Arduino  10  to nRF24L01+ CS
+- Arduino  11  to nRF24L01+ MOSI
+- Arduino  12  to nRF24L01+ MISO
+- Arduino  13  to nRF24L01+ CLK
+- Arduino GND  to button and capacitor
+- Arduino   5V to battery "+" and capacitor
+- Battery "-"  to button
+
+A 1000 nF capacitor worked for me.
