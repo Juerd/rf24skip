@@ -5,6 +5,7 @@
 // NB: This sketch assumes 32 bit addresses
 
 static long int address = 0x66996699L;  // So that's 0x0066996699
+const int tries = 10;
 
 RF24 rf(/*ce*/ 8, /*cs*/ 10);
 
@@ -15,11 +16,18 @@ void setup() {
     rf.enableDynamicPayloads();
     rf.openWritingPipe(address);
     char buf[6] = "\x04SKIP";
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < tries; i++)
         rf.write(&buf, 5);
 }
 
 void loop() {
+    if (millis() >= 2500) {
+        char buf[6] = "\x04STOP";
+        for (int i = 0; i < tries; i++)
+            rf.write(&buf, 5);
+        for (;;);  // halt
+    }
+
 }
 
 
