@@ -11,6 +11,8 @@ use Net::MQTT::Constants;
 use Net::MQTT::Message;
 use IO::Select;
 
+$SIG{PIPE} = 'IGNORE';
+
 # Defaults
 my $verbose = 0;
 my $mqtthost = "127.0.0.1";
@@ -18,32 +20,45 @@ my $mqttport = "1883";
 my $keep_alive_timer = 60;
 
 # Create socket to MQTT and send CONNECT message
-our $mqttsocket = IO::Socket::INET->new(PeerAddr => $mqtthost.':'.$mqttport,
-                        Timeout => $keep_alive_timer,
-                       ) or die "Socket connect failed: $!\n";
-my $connectmsg = Net::MQTT::Message->new( message_type => MQTT_CONNECT );
-$connectmsg = $connectmsg->bytes;
-syswrite $mqttsocket, $connectmsg, length $connectmsg;
+sub mqtt_connect {
+    my $socket = IO::Socket::INET->new(
+        PeerAddr => "$mqtthost:$mqttport",
+        Proto => "tcp",
+        Timeout => $keep_alive_timer,
+    ) or warn "MQTT connect failed: $!";
 
+    $socket or return;
+
+    print $socket Net::MQTT::Message->new(
+        message_type => MQTT_CONNECT
+    )->bytes;
+    return $socket;
+}
 
 sub ledbanner {
-    my $ledsocket = IO::Socket::INET->new(qw/PeerAddr 10.42.76.66 PeerPort 12345 Proto udp/)
-        or warn $!;
+    my $ledsocket = IO::Socket::INET->new(
+        PeerAddr => "10.42.76.66:12345",
+        Proto => "udp"
+    ) or warn "Ledbanner socket: $!";
     $ledsocket->send(shift);
     close $ledsocket;
 }
 
 # MQTT Message
+my $mqttsocket;
 sub mqtt {
     my ($topic, $message, $retain) = @_;
 
-    my $msg = Net::MQTT::Message->new(
+    $mqttsocket and $mqttsocket->connected
+        or $mqttsocket = mqtt_connect
+        or return;
+
+    print $mqttsocket Net::MQTT::Message->new(
         message_type => MQTT_PUBLISH,
         retain => $retain,
         topic => "/revspace/" . $topic,
-        message => $message);
-  $msg = $msg->bytes;
-  syswrite $mqttsocket, $msg, length $msg;
+        message => $message
+    )->bytes;
 }
 
 my $minimum_time = .5;
