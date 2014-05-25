@@ -43,7 +43,7 @@ my $dev = (glob "/dev/ttyUSB*")[0];
 -e $dev or die "$dev not found";
 
 system qw(stty -F), $dev, qw(cs8 115200 ignbrk -brkint -icrnl -imaxbel -opost
-    -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke
+    -onlcr -isig -icanon min 1 -iexten -echo -echoe -echok -echoctl -echoke
     noflsh -ixon -crtscts);
 
 
