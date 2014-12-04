@@ -4,6 +4,7 @@ use Time::HiRes qw(time);
 use LWP::Simple qw(get);
 use POSIX qw(strftime tcflush TCIFLUSH);
 
+use v5.14;
 use IO::Socket;
 use IO::Socket::INET;
 
@@ -30,12 +31,39 @@ my %url = (
     NOMZ => sub {
         ledbanner("NOMZ");
     },
+    GEIG => sub {
+        my ($geig) = unpack "n", shift;
+        print "$geig\n";
+        retain "revspace/sensors/geiger", "$geig CPM";
+    },
     CO_2 => sub {
         my ($co2) = unpack "n", shift;
-        print $co2, "\n";;
-        retain "/revspace/sensors/co2", $co2;
-        ledbanner($co2 > 1600 ? "!!sticky!!CO2 HIGH" : "!!reset!!CO2 HIGH");
-    }
+        print "$co2\n";
+        retain "revspace/sensors/co2", "$co2 PPM";
+    },
+    HUMI => sub {
+        my ($humi) = unpack "n", shift;
+	$humi = sprintf "%.02f", $humi / 100;
+        print "$humi\n";
+        retain "revspace/sensors/humidity", "$humi %";
+    },
+    SUCK => sub {
+        my ($level, $mode) = unpack "CC", shift;
+	state $oldmode = "";
+        $mode = (
+              $mode == 0b01111011 ? "auto"
+            : $mode == 0b00111111 ? "override"
+            : $mode == 0b00000000 ? "idle"
+            : $mode == 0b00010100 ? "wait"
+            : $mode == 0b01010100 ? "refresh"
+            : $mode == 0b01001111 ? "demoist"
+            : sprintf "unknown (0b%08b)", $mode
+        );
+	print "$level, $mode\n";
+        retain "revspace/spacesucker/level", "$level %";
+        retain "revspace/spacesucker/mode", $mode if $mode ne $oldmode;
+        $oldmode = $mode;
+    },
 );
 
 my $dev = (glob "/dev/ttyUSB*")[0];
@@ -43,12 +71,13 @@ my $dev = (glob "/dev/ttyUSB*")[0];
 -e $dev or die "$dev not found";
 
 system qw(stty -F), $dev, qw(cs8 115200 ignbrk -brkint -icrnl -imaxbel -opost
-    -onlcr -isig -icanon min 1 -iexten -echo -echoe -echok -echoctl -echoke
+    -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke
     noflsh -ixon -crtscts);
 
 
 while (1) {
     my %prev;
+    print "(Re-)opening filehandle\n"; 
     open my $fh, "<", (glob "/dev/ttyUSB*")[0] or die $!;
     while (<$fh>) {
         s/[\r\n]//g;
@@ -63,12 +92,12 @@ while (1) {
 
         next if $prev{$type} and $prev{$type} > (time() - $minimum_time);
 
-        publish "/revspace/button/skip", "Skip pressed: " . localtime if $type eq "SKIP";
-        publish "/revspace/button/nomz", "NOMZ pressed: " . localtime if $type eq "NOMZ";
-        publish "/revspace/button/shuffle", "Shuffle pressed: " . localtime if $type eq "SHUF";
-        publish "/revspace/button/stop", "Stop pressed: " . localtime if $type eq "STOP";
+        publish "revspace/button/skip", "Skip pressed: " . localtime if $type eq "SKIP";
+        publish "revspace/button/nomz", "NOMZ pressed: " . localtime if $type eq "NOMZ";
+        publish "revspace/button/shuffle", "Shuffle pressed: " . localtime if $type eq "SHUF";
+        publish "revspace/button/stop", "Stop pressed: " . localtime if $type eq "STOP";
 
-        print "$type\n";
+        print "$type ";
 
         if (ref $url{$type}) {
             $url{$type}->($data);
